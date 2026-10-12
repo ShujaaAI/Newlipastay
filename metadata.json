@@ -1,0 +1,6 @@
+{
+  "name": "LipaStay.co.ke - 0% Commission Airbnb Alternative Kenya | WhatsApp + M-Pesa Direct",
+  "description": "List your Airbnb free. No commission. Guests book via WhatsApp and pay direct to your M-Pesa Till.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
