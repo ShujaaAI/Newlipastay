@@ -1,14 +1,17 @@
 import React, { useState } from 'react';
-import { Menu, X, ArrowRight, ShieldCheck, Home, Globe } from 'lucide-react';
+import { Menu, X, ArrowRight, ShieldCheck, Home, Globe, LogOut, User, LayoutDashboard } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { MpesaTillVerifiedBadge } from '../ui/MpesaTillVerifiedBadge';
 import { Language, translations } from '../../utils/i18n';
+import { HostAccount, displayKenyanPhone } from '../../utils/hostAuth';
 
 export interface HeaderProps {
   onNavClick?: (target: string) => void;
   onListPropertyClick?: () => void;
   language?: Language;
   onToggleLanguage?: () => void;
+  currentHost?: HostAccount | null;
+  onLogout?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -16,6 +19,8 @@ export const Header: React.FC<HeaderProps> = ({
   onListPropertyClick,
   language = 'EN',
   onToggleLanguage,
+  currentHost = null,
+  onLogout,
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const t = translations[language];
@@ -24,7 +29,11 @@ export const Header: React.FC<HeaderProps> = ({
     { label: t.howItWorks, href: '#how-it-works', id: 'how-it-works' },
     { label: t.listings, href: '#listings', id: 'listings' },
     { label: t.forHosts, href: '#for-hosts', id: 'for-hosts' },
-    { label: t.hostDashboard, href: '#dashboard', id: 'dashboard' },
+    {
+      label: currentHost ? 'My Dashboard' : t.hostDashboard,
+      href: '#dashboard',
+      id: 'dashboard',
+    },
   ];
 
   const handleLinkClick = (id: string) => {
@@ -90,7 +99,11 @@ export const Header: React.FC<HeaderProps> = ({
                 e.preventDefault();
                 handleLinkClick(link.id);
               }}
-              className="text-sm font-medium text-[#4B5563] hover:text-[#00A651] transition-colors relative py-1 hover:underline underline-offset-4 decoration-[#00A651]"
+              className={`text-sm font-medium transition-colors relative py-1 hover:underline underline-offset-4 decoration-[#00A651] ${
+                link.id === 'dashboard' && currentHost
+                  ? 'text-[#008440] font-bold'
+                  : 'text-[#4B5563] hover:text-[#00A651]'
+              }`}
             >
               {link.label}
             </a>
@@ -98,7 +111,7 @@ export const Header: React.FC<HeaderProps> = ({
           <MpesaTillVerifiedBadge size="sm" />
         </nav>
 
-        {/* Desktop CTA & Language Switcher */}
+        {/* Desktop CTA & Language Switcher & Host Info */}
         <div className="hidden md:flex items-center gap-3">
           {/* Language Toggle (EN / Kiswahili) */}
           <button
@@ -111,14 +124,52 @@ export const Header: React.FC<HeaderProps> = ({
             <span>{language === 'EN' ? '🇰🇪 SW' : '🇬🇧 EN'}</span>
           </button>
 
-          <Button
-            variant="mpesa"
-            size="md"
-            onClick={handleCtaClick}
-            rightIcon={<ArrowRight className="w-4 h-4" />}
-          >
-            {t.listFree}
-          </Button>
+          {/* Logged in Host info in Header */}
+          {currentHost ? (
+            <div className="flex items-center gap-2.5">
+              <button
+                onClick={() => handleLinkClick('dashboard')}
+                className="flex items-center gap-2 bg-[#FFFBF5] border border-[#00A651]/40 rounded-xl px-3 py-1.5 text-left hover:border-[#00A651] transition-all"
+              >
+                <div className="w-6 h-6 rounded-full bg-[#00A651] text-white flex items-center justify-center font-bold text-xs">
+                  {currentHost.name.charAt(0)}
+                </div>
+                <div className="text-xs">
+                  <div className="font-bold text-[#111111] line-clamp-1">{currentHost.name}</div>
+                  <div className="text-[10px] text-[#6B7280] font-mono">
+                    {displayKenyanPhone(currentHost.phone)}
+                  </div>
+                </div>
+              </button>
+
+              <button
+                onClick={onLogout}
+                title="Logout from Host Portal"
+                className="p-2 rounded-xl text-neutral-500 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="md"
+                onClick={() => handleLinkClick('login')}
+                className="text-xs font-bold px-3.5"
+              >
+                Host Login
+              </Button>
+              <Button
+                variant="mpesa"
+                size="md"
+                onClick={handleCtaClick}
+                rightIcon={<ArrowRight className="w-4 h-4" />}
+              >
+                {t.listFree}
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Mobile Actions */}
@@ -132,14 +183,24 @@ export const Header: React.FC<HeaderProps> = ({
             {language === 'EN' ? 'SW' : 'EN'}
           </button>
 
-          <Button
-            variant="mpesa"
-            size="sm"
-            onClick={handleCtaClick}
-            className="text-xs px-3"
-          >
-            List Free
-          </Button>
+          {currentHost ? (
+            <button
+              onClick={() => handleLinkClick('dashboard')}
+              className="text-xs px-2.5 py-1 bg-[#EAF8F0] border border-[#00A651]/30 rounded-lg font-bold text-[#008440]"
+            >
+              Portal
+            </button>
+          ) : (
+            <Button
+              variant="mpesa"
+              size="sm"
+              onClick={handleCtaClick}
+              className="text-xs px-3"
+            >
+              List Free
+            </Button>
+          )}
+
           <button
             type="button"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -154,6 +215,24 @@ export const Header: React.FC<HeaderProps> = ({
       {/* Mobile Drawer Dropdown */}
       {mobileMenuOpen && (
         <div className="md:hidden border-b border-[#EBE5DB] bg-[#FFFBF5] px-4 pt-3 pb-6 space-y-4 animate-in slide-in-from-top-2">
+          {currentHost && (
+            <div className="p-3 bg-white rounded-2xl border border-[#EBE5DB] flex items-center justify-between">
+              <div>
+                <div className="font-bold text-sm text-[#111111]">{currentHost.name}</div>
+                <div className="font-mono text-xs text-[#6B7280]">{displayKenyanPhone(currentHost.phone)}</div>
+              </div>
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  onLogout?.();
+                }}
+                className="text-xs text-rose-600 font-bold px-2 py-1 bg-rose-50 rounded-lg"
+              >
+                Logout
+              </button>
+            </div>
+          )}
+
           <nav className="flex flex-col space-y-2">
             {navLinks.map((link) => (
               <a
@@ -169,16 +248,39 @@ export const Header: React.FC<HeaderProps> = ({
               </a>
             ))}
           </nav>
-          <div className="pt-2 border-t border-[#EBE5DB]">
-            <Button
-              variant="mpesa"
-              size="lg"
-              fullWidth
-              onClick={handleCtaClick}
-              rightIcon={<ArrowRight className="w-4 h-4" />}
-            >
-              {t.listFree}
-            </Button>
+
+          <div className="pt-2 border-t border-[#EBE5DB] space-y-2">
+            {!currentHost ? (
+              <>
+                <Button
+                  variant="mpesa"
+                  size="lg"
+                  fullWidth
+                  onClick={handleCtaClick}
+                  rightIcon={<ArrowRight className="w-4 h-4" />}
+                >
+                  {t.listFree}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="md"
+                  fullWidth
+                  onClick={() => handleLinkClick('login')}
+                >
+                  Host Login
+                </Button>
+              </>
+            ) : (
+              <Button
+                variant="mpesa"
+                size="lg"
+                fullWidth
+                onClick={() => handleLinkClick('dashboard')}
+                leftIcon={<LayoutDashboard className="w-4 h-4" />}
+              >
+                Open Host Dashboard
+              </Button>
+            )}
             <p className="text-center text-xs text-[#6B7280] mt-2.5">
               0% booking commission · Direct guest inquiries
             </p>

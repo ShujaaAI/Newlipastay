@@ -39,6 +39,49 @@ npm run build
 
 ---
 
+## 🔥 How to Enable Phone Auth & Firestore in Firebase Console
+
+LipaStay uses **Firebase Phone Auth** (`signInWithPhoneNumber` + `RecaptchaVerifier`) and **Cloud Firestore** for host verification.
+
+### 1. Enable Phone Authentication:
+1. Open the [Firebase Console](https://console.firebase.google.com/) and select or create your project.
+2. In the left navigation, click **Build** > **Authentication** > **Get started**.
+3. Go to the **Sign-in method** tab and click on **Phone**.
+4. Toggle the **Enable** switch to ON.
+5. *(Recommended for Development/Testing)* Expand **Phone numbers for testing** and add your Kenyan test numbers:
+   - **Phone number:** `+254712345001`
+   - **Verification code:** `123456`
+   - **Phone number:** `+254722345002`
+   - **Verification code:** `123456`
+   *(This lets you test instant SMS verification without incurring SMS charges or hitting Safaricom carrier rate limits).*
+6. Click **Save**.
+
+### 2. Enable Firestore Database:
+1. In the Firebase Console, go to **Build** > **Firestore Database** > **Create database**.
+2. Select your database location (e.g., `europe-west1` or closest to Kenya).
+3. Start in **Test mode** (or configure standard security rules).
+4. LipaStay will automatically create and update the `hosts` collection with:
+   - `uid`: Unique Firebase Authentication UID
+   - `name`: Host Full Name
+   - `phone`: Safaricom phone in `254XXXXXXXXX` format
+   - `till`: Host M-Pesa Buy Goods Till / Paybill
+   - `status`: `'pending'` (updated to `'verified'` once Till verification is confirmed)
+   - `createdAt`: Timestamp
+
+### 3. Add Client Config to `.env`:
+In your project root, create or update `.env`:
+```env
+VITE_FIREBASE_API_KEY="AIzaSyYourActualFirebaseApiKey"
+VITE_FIREBASE_AUTH_DOMAIN="your-project.firebaseapp.com"
+VITE_FIREBASE_PROJECT_ID="your-project"
+VITE_FIREBASE_STORAGE_BUCKET="your-project.appspot.com"
+VITE_FIREBASE_MESSAGING_SENDER_ID="your-sender-id"
+VITE_FIREBASE_APP_ID="1:your-sender-id:web:your-app-id"
+```
+*(If no Firebase credentials are configured or in sandbox mode, LipaStay gracefully defaults to testing mode with mock OTP `123456` so you can continue testing immediately).*
+
+---
+
 ## 📲 How to Connect Real Safaricom Daraja API (M-Pesa STK Push)
 
 To transition from the current mock simulation to live Safaricom M-Pesa STK Push:

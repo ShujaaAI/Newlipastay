@@ -10,49 +10,44 @@ import { PropertyDetailModal } from './components/detail/PropertyDetailModal';
 import { MpesaPaymentModal } from './components/mpesa/MpesaPaymentModal';
 import { HostOnboardingModal } from './components/hosts/HostOnboardingModal';
 import { ForHostsPage } from './components/hosts/ForHostsPage';
-import { HostDashboard } from './components/dashboard/HostDashboard';
-import { HostAuthModal } from './components/dashboard/HostAuthModal';
+import { HostDashboardView } from './components/dashboard/HostDashboardView';
+import { LoginPage } from './components/auth/LoginPage';
+import { RegisterPage } from './components/auth/RegisterPage';
 import { FloatingWhatsAppFounder } from './components/ui/FloatingWhatsAppFounder';
 import { MobileStickyCta } from './components/layout/MobileStickyCta';
 import { Toast } from './components/ui/Toast';
 import { PaidBooking } from './utils/mpesa';
 import { HostLead } from './utils/hosts';
 import { Language, translations } from './utils/i18n';
+import {
+  HostAccount,
+  getCurrentHost,
+  logoutHost,
+  initializeStorage
+} from './utils/hostAuth';
 import { CheckCircle2 } from 'lucide-react';
-
-interface HostSession {
-  phone: string;
-  name: string;
-}
 
 export default function App() {
   const [selectedListing, setSelectedListing] = useState<ListingItem | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isMpesaModalOpen, setIsMpesaModalOpen] = useState(false);
   const [isHostModalOpen, setIsHostModalOpen] = useState(false);
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [currentPage, setCurrentPage] = useState<'home' | 'for-hosts' | 'dashboard'>('home');
-  const [hostSession, setHostSession] = useState<HostSession | null>(null);
+  const [currentPage, setCurrentPage] = useState<'home' | 'for-hosts' | 'login' | 'register' | 'dashboard'>('home');
+  const [currentHost, setCurrentHostState] = useState<HostAccount | null>(null);
+  const [registerPrefillPhone, setRegisterPrefillPhone] = useState('');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [language, setLanguage] = useState<Language>('EN');
 
   const t = translations[language];
 
-  // Check saved host session
+  // Initialize and load host session on mount
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem('lipastay_host_session');
-      if (saved) {
-        setHostSession(JSON.parse(saved));
-      }
-    } catch (e) {
-      console.warn('Session parse error', e);
+    initializeStorage();
+    const host = getCurrentHost();
+    if (host) {
+      setCurrentHostState(host);
     }
   }, []);
-
-  const toggleLanguage = () => {
-    setLanguage((prev) => (prev === 'EN' ? 'SW' : 'EN'));
-  };
 
   const showToast = (message: string) => {
     setToastMessage(message);
@@ -61,14 +56,33 @@ export default function App() {
     }, 4500);
   };
 
+  const toggleLanguage = () => {
+    setLanguage((prev) => (prev === 'EN' ? 'SW' : 'EN'));
+  };
+
+  // Protected Route Check for /dashboard
+  const navigateToDashboard = () => {
+    const host = getCurrentHost();
+    if (!host) {
+      showToast('Please log in with your phone to access your Host Dashboard.');
+      setCurrentPage('login');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      setCurrentHostState(host);
+      setCurrentPage('dashboard');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
   const handleNavClick = (target: string) => {
     if (target === 'dashboard') {
-      if (!hostSession) {
-        setIsAuthModalOpen(true);
-      } else {
-        setCurrentPage('dashboard');
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      }
+      navigateToDashboard();
+    } else if (target === 'login') {
+      setCurrentPage('login');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else if (target === 'register') {
+      setCurrentPage('register');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } else if (target === 'for-hosts') {
       setCurrentPage('for-hosts');
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -90,17 +104,17 @@ export default function App() {
     }
   };
 
-  const handleHostAuthenticated = (phone: string, hostName: string) => {
-    const session: HostSession = { phone, name: hostName };
-    setHostSession(session);
-    try {
-      localStorage.setItem('lipastay_host_session', JSON.stringify(session));
-    } catch (e) {
-      console.error(e);
-    }
-    setIsAuthModalOpen(false);
+  const handleLogout = () => {
+    logoutHost();
+    setCurrentHostState(null);
+    setCurrentPage('login');
+    showToast('Logged out of host portal.');
+  };
+
+  const handleAuthSuccess = (host: HostAccount) => {
+    setCurrentHostState(host);
     setCurrentPage('dashboard');
-    showToast(`Welcome back, ${hostName}! Host session verified via OTP.`);
+    showToast(`Karibu ${host.name}! Host portal authenticated with OTP 123456.`);
   };
 
   const handleFindStay = () => {
@@ -143,30 +157,51 @@ export default function App() {
       {/* Toast Notification */}
       <Toast message={toastMessage} onClose={() => setToastMessage(null)} />
 
-      {/* LipaStay Header with Language Toggle */}
+      {/* LipaStay Header with Host Name, Phone, and Logout */}
       <Header
         onNavClick={handleNavClick}
         onListPropertyClick={handleOpenHostModal}
         language={language}
         onToggleLanguage={toggleLanguage}
+        currentHost={currentHost}
+        onLogout={handleLogout}
       />
 
       <main className="flex-1">
-        {/* Conditional Views */}
-        {currentPage === 'dashboard' && hostSession ? (
-          <HostDashboard
-            hostName={hostSession.name}
-            hostPhone={hostSession.phone}
-            onAddNewListing={handleOpenHostModal}
-            onBackToGuestView={() => setCurrentPage('home')}
+        {/* VIEW 1: PROTECTED DASHBOARD (/dashboard) */}
+        {currentPage === 'dashboard' && currentHost ? (
+          <HostDashboardView
+            currentHost={currentHost}
+            onLogout={handleLogout}
+            onNavigateHome={() => setCurrentPage('home')}
             onShowToast={showToast}
           />
+        ) : currentPage === 'login' ? (
+          /* VIEW 2: LOGIN PAGE (/login) */
+          <LoginPage
+            onSuccess={handleAuthSuccess}
+            onNavigateToRegister={(phone) => {
+              if (phone) setRegisterPrefillPhone(phone);
+              setCurrentPage('register');
+            }}
+            onBackToHome={() => setCurrentPage('home')}
+          />
+        ) : currentPage === 'register' ? (
+          /* VIEW 3: REGISTER PAGE (/register) */
+          <RegisterPage
+            onSuccess={handleAuthSuccess}
+            onNavigateToLogin={() => setCurrentPage('login')}
+            onBackToHome={() => setCurrentPage('home')}
+            initialPhone={registerPrefillPhone}
+          />
         ) : currentPage === 'for-hosts' ? (
+          /* VIEW 4: FOR HOSTS LANDING */
           <ForHostsPage
             onOpenListingModal={handleOpenHostModal}
             onBackToHome={() => setCurrentPage('home')}
           />
         ) : (
+          /* VIEW 5: GUEST HOME LANDING */
           <>
             {/* 1. HERO SECTION */}
             <HeroSection
@@ -191,29 +226,6 @@ export default function App() {
             />
           </>
         )}
-
-        {/* Step 8 Production Complete Banner */}
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 mb-4">
-          <div className="bg-[#111111] text-white rounded-3xl p-6 sm:p-7 flex flex-col md:flex-row items-start md:items-center justify-between gap-5 shadow-xl border border-neutral-800">
-            <div className="space-y-1">
-              <div className="inline-flex items-center gap-1.5 text-xs font-bold text-[#00A651] bg-[#00A651]/20 px-3 py-1 rounded-full border border-[#00A651]/30">
-                <CheckCircle2 className="w-3.5 h-3.5" /> All 8 Steps Completed · Production Ready
-              </div>
-              <h3 className="text-lg sm:text-xl font-black tracking-tight text-white">
-                LipaStay.co.ke is Ready to Launch &amp; Onboard Kenyan Hosts
-              </h3>
-              <p className="text-xs text-neutral-400 max-w-xl">
-                0% commission architecture, WhatsApp direct wa.me booking, Safaricom M-Pesa STK push
-                mock, host onboarding lead capture, and Firebase deployment configuration are active.
-              </p>
-            </div>
-            <div className="shrink-0 flex items-center gap-2">
-              <span className="text-xs text-emerald-400 font-mono font-semibold bg-emerald-950/60 px-3 py-1.5 rounded-xl border border-emerald-800">
-                Status: Production Ready
-              </span>
-            </div>
-          </div>
-        </section>
       </main>
 
       {/* Property Detail Modal */}
@@ -240,21 +252,16 @@ export default function App() {
         onLeadSubmitted={handleHostLeadSubmitted}
       />
 
-      {/* Phone OTP Auth Modal */}
-      <HostAuthModal
-        isOpen={isAuthModalOpen}
-        onClose={() => setIsAuthModalOpen(false)}
-        onAuthenticated={handleHostAuthenticated}
-      />
-
       {/* Floating WhatsApp Founder Chat Button */}
       <FloatingWhatsAppFounder label={t.founderHelp} />
 
-      {/* Mobile Sticky CTA Bar */}
-      <MobileStickyCta
-        label={t.stickyMobileCta}
-        onClick={handleOpenHostModal}
-      />
+      {/* Mobile Sticky CTA Bar (hidden when in dashboard/auth) */}
+      {currentPage === 'home' && (
+        <MobileStickyCta
+          label={t.stickyMobileCta}
+          onClick={handleOpenHostModal}
+        />
+      )}
 
       {/* Kenyan Trust Footer */}
       <Footer trustText={t.trustFooter} />
